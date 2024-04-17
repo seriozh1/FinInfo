@@ -42,16 +42,43 @@ public class MunicipalityDataRetriever {
     public WorkData getWorkPlaceAndEmploymentRate(Context context, String municipalityName) {
         String code = getMunicipalityCodesMap().get(municipalityName);
 
-        try {
-            // The query for fetching data from a single municipality is stored in query.json
-            JsonNode jsonQuery = objectMapper.readTree(context.getResources().openRawResource(R.raw.workplaceselfsufficiencyquery));
-            // Let's replace the municipality code in the query with the municipality that the user gave
-            // as input
-            ((ObjectNode) jsonQuery.findValue("query").get(1).get("selection")).putArray("values").add(code);
+        WorkData workData = new WorkData();
 
+        // Workplace self-sufficiency
+        try {
+            JsonNode jsonQuery = objectMapper.readTree(context.getResources().openRawResource(R.raw.workplaceselfsufficiencyquery));
+            ((ObjectNode) jsonQuery.findValue("query").get(1).get("selection")).putArray("values").add(code);
 
             HttpURLConnection con = connectToAPIAndSendPostRequest(objectMapper, jsonQuery, new URL("https://pxdata.stat.fi:443/PxWeb/api/v1/en/StatFin/tyokay/statfin_tyokay_pxt_125s.px"));
 
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), "utf-8"))) {
+                StringBuilder response = new StringBuilder();
+                String responseLine = null;
+                while ((responseLine = br.readLine()) != null) {
+                    response.append(responseLine.trim());
+                }
+
+                JsonNode workAndEmploymentData = objectMapper.readTree(response.toString());
+                // Log.d("LUTPROJECT", workAndEmploymentData.toPrettyString());
+
+                JsonNode value = workAndEmploymentData.get("value");
+                 // Log.d("LUTPROJECT value", value.get(0).asText());
+
+                workData.setWorkplaceSelfSufficiency(new BigDecimal(value.get(0).asText()).setScale(2));
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // Employment rate
+        try {
+            JsonNode jsonQuery = objectMapper.readTree(context.getResources().openRawResource(R.raw.employmentratequery));
+            ((ObjectNode) jsonQuery.findValue("query").get(0).get("selection")).putArray("values").add(code);
+
+            HttpURLConnection con = connectToAPIAndSendPostRequest(objectMapper, jsonQuery, new URL("https://pxdata.stat.fi:443/PxWeb/api/v1/en/StatFin/tyokay/statfin_tyokay_pxt_115x.px"));
 
             try (BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), "utf-8"))) {
                 StringBuilder response = new StringBuilder();
@@ -62,25 +89,21 @@ public class MunicipalityDataRetriever {
 
                 JsonNode workAndEmploymentData = objectMapper.readTree(response.toString());
 
-                WorkData workData = new WorkData();
-                Log.d("LUTPROJECT", workAndEmploymentData.toPrettyString());
+//                Log.d("LUTPROJECT2========", workAndEmploymentData.toPrettyString());
 
                 JsonNode value = workAndEmploymentData.get("value");
-                Log.d("LUTPROJECT value", value.get(0).asText());
+//                Log.d("LUTPROJECT value2========", value.get(0).asText());
 
-                workData.setWorkplaceSelfSufficiency(new BigDecimal(value.get(0).asText()).setScale(2));
-
-                return workData;
+                workData.setEmploymentRate(new BigDecimal(value.get(0).asText()).setScale(2));
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             }
 
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
 
-        return null;
+        return workData;
     }
 
     public ArrayList<PopulationData> getPopulationData(Context context, String municipalityName) {

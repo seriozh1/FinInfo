@@ -25,8 +25,8 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView txtPopulation;
     private TextView txtWeather;
-
     private TextView txtWorkStatistics;
+    private TextView txtEmploymentRate;
 
     private EditText editMunicipalityName;
 
@@ -39,6 +39,7 @@ public class MainActivity extends AppCompatActivity {
         txtPopulation = findViewById(R.id.txtPopulation);
         txtWeather = findViewById(R.id.txtWeather);
         txtWorkStatistics = findViewById(R.id.workStatistics);
+        txtEmploymentRate = findViewById(R.id.employmentRate);
         editMunicipalityName = findViewById(R.id.editMunicipalityName);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
@@ -89,6 +90,7 @@ public class MainActivity extends AppCompatActivity {
                                         txtWeather.setText(weatherDataAsString);
 
                                         txtWorkStatistics.setText( "Workplace self-sufficiency: " + workData.getWorkplaceSelfSufficiency().toString());
+                                        txtEmploymentRate.setText( "Employment rate: " + workData.getEmploymentRate().toString());
                                     }
                                 });                            }
                         }
