@@ -1,6 +1,7 @@
 package com.example.oopandroidapi;
 
 import android.content.Context;
+import android.util.Log;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -8,9 +9,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.math.BigDecimal;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
@@ -28,28 +31,73 @@ public class MunicipalityDataRetriever {
      * Get municipality codes, we need to do this only once
      *
      */
-    public static void getMunicipalityCodesMap() {
+    public static HashMap<String, String> getMunicipalityCodesMap() {
         if (municipalityNamesToCodesMap == null) {
             JsonNode areas = readAreaDataFromTheAPIURL(objectMapper);
             municipalityNamesToCodesMap = createMunicipalityNamesToCodesMap(areas);
         }
+        return municipalityNamesToCodesMap;
     }
 
-    public ArrayList<MunicipalityData> getData(Context context, String municipalityName) {
+    public WorkData getWorkPlaceAndEmploymentRate(Context context, String municipalityName) {
+        String code = getMunicipalityCodesMap().get(municipalityName);
+
+        try {
+            // The query for fetching data from a single municipality is stored in query.json
+            JsonNode jsonQuery = objectMapper.readTree(context.getResources().openRawResource(R.raw.workplaceselfsufficiencyquery));
+            // Let's replace the municipality code in the query with the municipality that the user gave
+            // as input
+            ((ObjectNode) jsonQuery.findValue("query").get(1).get("selection")).putArray("values").add(code);
+
+
+            HttpURLConnection con = connectToAPIAndSendPostRequest(objectMapper, jsonQuery, new URL("https://pxdata.stat.fi:443/PxWeb/api/v1/en/StatFin/tyokay/statfin_tyokay_pxt_125s.px"));
+
+
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), "utf-8"))) {
+                StringBuilder response = new StringBuilder();
+                String responseLine = null;
+                while ((responseLine = br.readLine()) != null) {
+                    response.append(responseLine.trim());
+                }
+
+                JsonNode workAndEmploymentData = objectMapper.readTree(response.toString());
+
+                WorkData workData = new WorkData();
+                Log.d("LUTPROJECT", workAndEmploymentData.toPrettyString());
+
+                JsonNode value = workAndEmploymentData.get("value");
+                Log.d("LUTPROJECT value", value.get(0).asText());
+
+                workData.setWorkplaceSelfSufficiency(new BigDecimal(value.get(0).asText()).setScale(2));
+
+                return workData;
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
+
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    public ArrayList<PopulationData> getPopulationData(Context context, String municipalityName) {
         //System.out.println(municipalityNamesToCodesMap);
 
-        String code = municipalityNamesToCodesMap.get(municipalityName);
+        String code = getMunicipalityCodesMap().get(municipalityName);
 
 
         try {
             // The query for fetching data from a single municipality is stored in query.json
-            JsonNode jsonQuery = objectMapper.readTree(context.getResources().openRawResource(R.raw.query));
+            JsonNode jsonQuery = objectMapper.readTree(context.getResources().openRawResource(R.raw.populationquery));
             // Let's replace the municipality code in the query with the municipality that the user gave
             // as input
             ((ObjectNode) jsonQuery.findValue("query").get(0).get("selection")).putArray("values").add(code);
 
 
-            HttpURLConnection con = connectToAPIAndSendPostRequest(objectMapper, jsonQuery);
+            HttpURLConnection con = connectToAPIAndSendPostRequest(objectMapper, jsonQuery, new URL("https://pxdata.stat.fi:443/PxWeb/api/v1/en/StatFin/synt/statfin_synt_pxt_12dy.px"));
 
 
             try (BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), "utf-8"))) {
@@ -75,34 +123,15 @@ public class MunicipalityDataRetriever {
 
                 populations = municipalityData.get("value");
 
-                ArrayList<MunicipalityData> populationData = new ArrayList<>();
+                ArrayList<PopulationData> populationData = new ArrayList<>();
 
 
                 for (int i = 0; i < populations.size(); i++) {
                     Integer population = populations.get(i).asInt();
-                    populationData.add(new MunicipalityData(Integer.parseInt(years.get(i)), population));
-                }
-
-                System.out.println(municipalityName);
-                System.out.println("==========================");
-
-
-                for (MunicipalityData data : populationData) {
-                    System.out.print(data.getYear() + ": " + data.getPopulation() + " ");
-
-                    for (int i = 0; i < data.getPopulation() / 10000; i++) {
-                        System.out.print("*");
-                    }
-
-                    System.out.println();
-
+                    populationData.add(new PopulationData(Integer.parseInt(years.get(i)), population));
                 }
 
                 return populationData;
-                //System.out.println(municipalityData.toPrettyString());
-
-                // System.out.println(populations.toPrettyString());
-
             }
         } catch (IOException e) {
             // TODO Auto-generated catch block
@@ -114,9 +143,8 @@ public class MunicipalityDataRetriever {
     }
 
 
-    private static HttpURLConnection connectToAPIAndSendPostRequest(ObjectMapper objectMapper, JsonNode jsonQuery)
+    private static HttpURLConnection connectToAPIAndSendPostRequest(ObjectMapper objectMapper, JsonNode jsonQuery, URL url)
             throws MalformedURLException, IOException, ProtocolException, JsonProcessingException {
-        URL url = new URL("https://pxdata.stat.fi:443/PxWeb/api/v1/en/StatFin/synt/statfin_synt_pxt_12dy.px");
 
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
 

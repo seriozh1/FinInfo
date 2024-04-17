@@ -26,6 +26,8 @@ public class MainActivity extends AppCompatActivity {
     private TextView txtPopulation;
     private TextView txtWeather;
 
+    private TextView txtWorkStatistics;
+
     private EditText editMunicipalityName;
 
     @Override
@@ -36,6 +38,7 @@ public class MainActivity extends AppCompatActivity {
 
         txtPopulation = findViewById(R.id.txtPopulation);
         txtWeather = findViewById(R.id.txtWeather);
+        txtWorkStatistics = findViewById(R.id.workStatistics);
         editMunicipalityName = findViewById(R.id.editMunicipalityName);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
@@ -57,11 +60,13 @@ public class MainActivity extends AppCompatActivity {
                             @Override
                             public void run() {
                                 MunicipalityDataRetriever.getMunicipalityCodesMap();
-                                ArrayList<MunicipalityData> municipalityDataArrayList = municipalityDataRetriever.getData(context, editMunicipalityName.getText().toString());
+                                ArrayList<PopulationData> municipalityDataArrayList = municipalityDataRetriever.getPopulationData(context, editMunicipalityName.getText().toString());
 
                                 if (municipalityDataArrayList == null) {
                                     return;
                                 }
+
+                                WorkData workData = municipalityDataRetriever.getWorkPlaceAndEmploymentRate(context, editMunicipalityName.getText().toString());
 
                                 WeatherData weatherData = weatherDataRetriever.getData(editMunicipalityName.getText().toString());
 
@@ -70,7 +75,7 @@ public class MainActivity extends AppCompatActivity {
                                     @Override
                                     public void run() {
                                         String dataString = "";
-                                        for (MunicipalityData data: municipalityDataArrayList) {
+                                        for (PopulationData data: municipalityDataArrayList) {
                                             dataString = dataString + data.getYear() + ": " + data.getPopulation() + "\n";
                                         }
                                         txtPopulation.setText(dataString);
@@ -82,6 +87,8 @@ public class MainActivity extends AppCompatActivity {
                                                 "Wind speed: " + weatherData.getWindSpeed() + "\n";
 
                                         txtWeather.setText(weatherDataAsString);
+
+                                        txtWorkStatistics.setText( "Workplace self-sufficiency: " + workData.getWorkplaceSelfSufficiency().toString());
                                     }
                                 });                            }
                         }
